@@ -8,6 +8,12 @@
 
 #include "utils.h"
 
+#include <iostream>
+#include <fstream>
+
+
+
+
 #define LOG_TAG "depthaiAndroid"
 #define log(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, __VA_ARGS__)
 
@@ -43,6 +49,18 @@ extern "C"
     std::atomic<bool> subpixel{false};
     // Better handling for occlusions:
     std::atomic<bool> lr_check{false};
+
+
+    ofstream logfile;
+    logfile.open("/sdcard/depthai-android-api.log", ios::app);
+
+    logfile << "depthai-android-api.log starting..." << std::endl;
+
+    void api_stop_device()
+    {
+        logfile.close();
+    }
+
 
     void api_start_device(int rgbWidth, int rgbHeight)
     {
@@ -109,6 +127,7 @@ extern "C"
         colorDisparityBuffer.resize(disparityWidth*disparityHeight*4);
 
         log("Device Connected!");
+        logfile << "Device Connected!" << std::endl;
     }
 
     unsigned int api_get_rgb_image(unsigned char* unityImageBuffer)
