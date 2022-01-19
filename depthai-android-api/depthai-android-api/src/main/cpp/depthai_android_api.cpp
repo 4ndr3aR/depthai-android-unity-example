@@ -11,9 +11,6 @@
 #include <iostream>
 #include <fstream>
 
-
-
-
 #define LOG_TAG "depthaiAndroid"
 #define log(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, __VA_ARGS__)
 
@@ -32,6 +29,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 
 extern "C"
 {
+    using namespace std;
 
     std::shared_ptr<dai::Device> device;
     std::shared_ptr<dai::DataOutputQueue> qRgb, qDisparity, qDepth;
@@ -51,19 +49,32 @@ extern "C"
     std::atomic<bool> lr_check{false};
 
 
-    ofstream logfile;
-    logfile.open("/sdcard/depthai-android-api.log", ios::app);
+    struct video_info
+    {
+        std::shared_ptr<DataOutputQueue> outQ1;
+        std::shared_ptr<DataOutputQueue> outQ2;
+        std::shared_ptr<DataOutputQueue> outQ3;
 
-    logfile << "depthai-android-api.log starting..." << std::endl;
+        std::ofstream videoFile1;
+        std::ofstream videoFile2;
+        std::ofstream videoFile2;
+
+        std::ofstream logfile;
+    }
+
+    video_info v_info;
 
     void api_stop_device()
     {
-        logfile.close();
+        v_info.logfile.close();
     }
-
 
     void api_start_device(int rgbWidth, int rgbHeight)
     {
+        log("Opening logfile: %s", "/sdcard/depthai-android-api.log");
+        v_info.logfile.open("/sdcard/depthai-android-api.log", std::ios::app);
+        v_info.logfile << "depthai-android-api.log starting..." << std::endl;
+
         // libusb
         auto r = libusb_set_option(nullptr, LIBUSB_OPTION_ANDROID_JNIENV, jni_env);
         log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
@@ -127,7 +138,7 @@ extern "C"
         colorDisparityBuffer.resize(disparityWidth*disparityHeight*4);
 
         log("Device Connected!");
-        logfile << "Device Connected!" << std::endl;
+        v_info.logfile << "Device Connected!" << std::endl;
     }
 
     unsigned int api_get_rgb_image(unsigned char* unityImageBuffer)
@@ -181,6 +192,102 @@ extern "C"
 
         // Return the image number
         return inDisparity->getSequenceNum();
+    }
+
+
+    unsigned int api_start_device_record_video(unsigned char* cstr_fname_prefix)
+    {
+        //std::string fname_prefix = std::string(cstr_fname_prefix) - TODO: de-hardcode fname
+        std::string fname_prefix = "/sdcard/depthai-video-";
+
+        // Create pipeline
+        dai::Pipeline pipeline;
+    
+        // Define sources and outputs
+        auto camRgb = pipeline.create<dai::node::ColorCamera>();
+        auto monoLeft = pipeline.create<dai::node::MonoCamera>();
+        auto monoRight = pipeline.create<dai::node::MonoCamera>();
+
+        auto ve1 = pipeline.create<dai::node::VideoEncoder>();
+        auto ve2 = pipeline.create<dai::node::VideoEncoder>();
+        auto ve3 = pipeline.create<dai::node::VideoEncoder>();
+    
+        auto ve1Out = pipeline.create<dai::node::XLinkOut>();
+        auto ve2Out = pipeline.create<dai::node::XLinkOut>();
+        auto ve3Out = pipeline.create<dai::node::XLinkOut>();
+    
+        ve1Out->setStreamName("ve1Out");
+        ve2Out->setStreamName("ve2Out");
+        ve3Out->setStreamName("ve3Out");
+    
+        // Properties
+        camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
+        monoLeft->setBoardSocket(dai::CameraBoardSocket::LEFT);
+        monoRight->setBoardSocket(dai::CameraBoardSocket::RIGHT);
+
+        // Create encoders, one for each camera, consuming the frames and encoding them using H.264 / H.265 encoding
+        ve1->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // left
+        ve2->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
+        ve3->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // right
+    
+        // Linking
+        monoLeft->out.link(ve1->input);
+        camRgb->video.link(ve2->input);
+        monoRight->out.link(ve3->input);
+
+        ve1->bitstream.link(ve1Out->input);
+        ve2->bitstream.link(ve2Out->input);
+        ve3->bitstream.link(ve3Out->input);
+    
+        // Connect to device and start pipeline
+        dai::Device device(pipeline);
+    
+        // Output queues will be used to get the encoded data from the output defined above
+        auto outQ1 = device.getOutputQueue("ve1Out", 30, true);
+        auto outQ2 = device.getOutputQueue("ve2Out", 30, true);
+        auto outQ3 = device.getOutputQueue("ve3Out", 30, true);
+    
+        // The .h264 / .h265 files are raw stream files (not playable yet)
+        auto videoFile1 = std::ofstream(fname_prefix + std::string("left.h264" ), std::ios::binary);
+        auto videoFile2 = std::ofstream(fname_prefix + std::string("color.h265"), std::ios::binary);
+        auto videoFile3 = std::ofstream(fname_prefix + std::string("right.h264"), std::ios::binary);
+
+        v_info.outQ1 = outQ1;
+        v_info.outQ2 = outQ2;
+        v_info.outQ3 = outQ3;
+    
+        v_info.videoFile1 = videoFile1;
+        v_info.videoFile2 = videoFile2;
+        v_info.videoFile3 = videoFile3;
+
+        //cout << "Press Ctrl+C to stop encoding..." << endl;
+        /*
+        while(alive)
+        {
+            auto out1 = outQ1->get<dai::ImgFrame>();
+            videoFile1.write((char*)out1->getData().data(), out1->getData().size());
+            auto out2 = outQ2->get<dai::ImgFrame>();
+            videoFile2.write((char*)out2->getData().data(), out2->getData().size());
+            auto out3 = outQ3->get<dai::ImgFrame>();
+            videoFile3.write((char*)out3->getData().data(), out3->getData().size());
+        }
+    
+        cout << "To view the encoded data, convert the stream file (.h264/.h265) into a video file (.mp4), using a command below:" << endl;
+        cout << "ffmpeg -framerate 30 -i mono1.h264 -c copy mono1.mp4" << endl;
+        cout << "ffmpeg -framerate 30 -i mono2.h264 -c copy mono2.mp4" << endl;
+        cout << "ffmpeg -framerate 30 -i color.h265 -c copy color.mp4" << endl;
+        */
+    
+        return 0;
+    }
+    unsigned int api_get_video_frames(unsigned char* cstr_fname_prefix)
+    {
+            auto out1 = v_info.outQ1->get<dai::ImgFrame>();
+            v_info.videoFile1.write((char*)out1->getData().data(), out1->getData().size());
+            auto out2 = v_info.outQ2->get<dai::ImgFrame>();
+            v_info.videoFile2.write((char*)out2->getData().data(), out2->getData().size());
+            auto out3 = v_info.outQ3->get<dai::ImgFrame>();
+            v_info.videoFile3.write((char*)out3->getData().data(), out3->getData().size());
     }
 }
 
