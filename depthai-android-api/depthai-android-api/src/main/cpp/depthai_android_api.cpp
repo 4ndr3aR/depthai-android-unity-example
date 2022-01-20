@@ -1,15 +1,21 @@
 #include <chrono>
 #include <string>
+#ifndef PIPELINE_LOCAL_TEST
 #include <android/log.h>
 
 #include <libusb/libusb/libusb.h>
 #include <jni.h>
+#endif
+
 #include "depthai/depthai.hpp"
 
-#include "utils.h"
-
 #include <iostream>
+#include <sstream> 
 #include <fstream>
+#include <chrono>
+
+#include "utils.h"
+#include "date.h"
 
 #define LOG_TAG "depthaiAndroid"
 #define log(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, __VA_ARGS__)
@@ -49,18 +55,23 @@ extern "C"
     std::atomic<bool> lr_check{false};
 
 
+    //std::string external_storage_path = "/storage/emulated/0/";
+    //std::string external_storage_path = "/storage/emulated/0/Android/data/com.DepthaiAndroid.UnityDepthaiAndroidExample/files/";
+
     struct video_info
     {
-        std::shared_ptr<DataOutputQueue> outQ1;
-        std::shared_ptr<DataOutputQueue> outQ2;
-        std::shared_ptr<DataOutputQueue> outQ3;
+        std::shared_ptr<dai::DataOutputQueue> outQ1;
+        std::shared_ptr<dai::DataOutputQueue> outQ2;
+        std::shared_ptr<dai::DataOutputQueue> outQ3;
 
         std::ofstream videoFile1;
         std::ofstream videoFile2;
-        std::ofstream videoFile2;
+        std::ofstream videoFile3;
 
         std::ofstream logfile;
-    }
+
+	std::uint64_t frame_counter = 0;
+    };
 
     video_info v_info;
 
@@ -69,15 +80,73 @@ extern "C"
         v_info.logfile.close();
     }
 
-    void api_start_device(int rgbWidth, int rgbHeight)
+    void api_log(const char *format, ...)
     {
-        log("Opening logfile: %s", "/sdcard/depthai-android-api.log");
-        v_info.logfile.open("/sdcard/depthai-android-api.log", std::ios::app);
-        v_info.logfile << "depthai-android-api.log starting..." << std::endl;
+        log("0. format: %s", format);
+	std::stringstream ss;
+        /*
+        va_list args;
+        va_start(args, fmt);
+        while (*fmt != '\0')
+	{
+            if (*fmt == 'd')
+	    {
+                int i = va_arg(args, int);
+                ss << i << ", ";
+            }
+	    else if (*fmt == 's')
+	    {
+                log("1. fmt: %s", 's');
+                char * s = va_arg(args, char*);
+                log("2. s: %s", s);
+                ss << s << ", ";
+            }
+	    else if (*fmt == 'l')
+	    {
+                int64_t l = va_arg(args, int);
+                ss << l << ", ";
+            }
+	    else if (*fmt == 'u')
+	    {
+                uint64_t ul = va_arg(args, int);
+                ss << ul << ", ";
+            }
+            ++fmt;
+        }
+        */
+
+	char buffer[4096];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buffer, 4095, format, args);
+
+	auto now = std::chrono::system_clock::now();
+	ss << date::format("%d/%m/%Y %H:%M:%S -- ", now) << buffer;
+
+	va_end (args);
+
+
+        log("%s", ss.str().c_str());
+        v_info.logfile << ss.str() << std::endl;
+     
+        va_end(args);
+    }
+
+    void api_open_logfile(std::string external_storage_path)
+    {
+        std::string logfile_fname = external_storage_path + "/depthai-android-api.log";
+        v_info.logfile.open(logfile_fname, std::ios::app);
+        api_log("Opening logfile: %s", logfile_fname.c_str());
+        v_info.logfile << logfile_fname + " starting..." << std::endl;
+    }
+
+    void api_start_device(int rgbWidth, int rgbHeight, unsigned char* external_storage_path)
+    {
+	api_open_logfile(std::string(reinterpret_cast<char const*>(external_storage_path)));
 
         // libusb
         auto r = libusb_set_option(nullptr, LIBUSB_OPTION_ANDROID_JNIENV, jni_env);
-        log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
+        api_log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
 
         // Create pipeline
         dai::Pipeline pipeline;
@@ -126,7 +195,7 @@ extern "C"
         device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
 
         auto device_info = device->getDeviceInfo();
-        log("%s",device_info.toString().c_str());
+        api_log("%s",device_info.toString().c_str());
 
         // Output queue will be used to get the rgb frames from the output defined above
         qRgb = device->getOutputQueue("rgb", 4, false);
@@ -137,7 +206,7 @@ extern "C"
         rgbImageBuffer.resize(rgbWidth*rgbHeight*4);
         colorDisparityBuffer.resize(disparityWidth*disparityHeight*4);
 
-        log("Device Connected!");
+        api_log("Device Connected!");
         v_info.logfile << "Device Connected!" << std::endl;
     }
 
@@ -195,13 +264,17 @@ extern "C"
     }
 
 
-    unsigned int api_start_device_record_video(unsigned char* cstr_fname_prefix)
+    void api_start_device_record_video(unsigned char* external_storage_path)
     {
+   	std::string ext_storage_path = std::string(reinterpret_cast<char const*>(external_storage_path));
+	api_open_logfile(ext_storage_path);
+
         //std::string fname_prefix = std::string(cstr_fname_prefix) - TODO: de-hardcode fname
-        std::string fname_prefix = "/sdcard/depthai-video-";
+        std::string fname_prefix = ext_storage_path + "/depthai-video-";
 
         // Create pipeline
         dai::Pipeline pipeline;
+        api_log("Pipeline started");
     
         // Define sources and outputs
         auto camRgb = pipeline.create<dai::node::ColorCamera>();
@@ -229,6 +302,7 @@ extern "C"
         ve1->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // left
         ve2->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
         ve3->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // right
+        api_log("H.264/H.265 video encoders created");
     
         // Linking
         monoLeft->out.link(ve1->input);
@@ -246,19 +320,26 @@ extern "C"
         auto outQ1 = device.getOutputQueue("ve1Out", 30, true);
         auto outQ2 = device.getOutputQueue("ve2Out", 30, true);
         auto outQ3 = device.getOutputQueue("ve3Out", 30, true);
+        api_log("Output queues created");
     
         // The .h264 / .h265 files are raw stream files (not playable yet)
-        auto videoFile1 = std::ofstream(fname_prefix + std::string("left.h264" ), std::ios::binary);
-        auto videoFile2 = std::ofstream(fname_prefix + std::string("color.h265"), std::ios::binary);
-        auto videoFile3 = std::ofstream(fname_prefix + std::string("right.h264"), std::ios::binary);
+	std::string left_fn  = fname_prefix + std::string("left.h264" );
+	std::string color_fn = fname_prefix + std::string("color.h265");
+	std::string right_fn = fname_prefix + std::string("right.h264");
+        v_info.videoFile1 = std::ofstream(left_fn , std::ios::binary);
+        v_info.videoFile2 = std::ofstream(color_fn, std::ios::binary);
+        v_info.videoFile3 = std::ofstream(right_fn, std::ios::binary);
+        api_log("Output files opened (%s - %s - %s)", left_fn.c_str(), color_fn.c_str(), right_fn.c_str());
 
         v_info.outQ1 = outQ1;
         v_info.outQ2 = outQ2;
         v_info.outQ3 = outQ3;
-    
+
+	/*    
         v_info.videoFile1 = videoFile1;
         v_info.videoFile2 = videoFile2;
         v_info.videoFile3 = videoFile3;
+	*/
 
         //cout << "Press Ctrl+C to stop encoding..." << endl;
         /*
@@ -277,10 +358,8 @@ extern "C"
         cout << "ffmpeg -framerate 30 -i mono2.h264 -c copy mono2.mp4" << endl;
         cout << "ffmpeg -framerate 30 -i color.h265 -c copy color.mp4" << endl;
         */
-    
-        return 0;
     }
-    unsigned int api_get_video_frames(unsigned char* cstr_fname_prefix)
+    unsigned long api_get_video_frames()
     {
             auto out1 = v_info.outQ1->get<dai::ImgFrame>();
             v_info.videoFile1.write((char*)out1->getData().data(), out1->getData().size());
@@ -288,6 +367,12 @@ extern "C"
             v_info.videoFile2.write((char*)out2->getData().data(), out2->getData().size());
             auto out3 = v_info.outQ3->get<dai::ImgFrame>();
             v_info.videoFile3.write((char*)out3->getData().data(), out3->getData().size());
+
+	    v_info.frame_counter++;
+	    if (v_info.frame_counter % 1000)
+ 	           api_log("Read video frame no.: %lu", v_info.frame_counter);
+
+            return v_info.frame_counter++;
     }
 }
 
