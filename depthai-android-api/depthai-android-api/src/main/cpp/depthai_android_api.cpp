@@ -1,5 +1,8 @@
 #include <chrono>
 #include <string>
+
+// g++ -DPIPELINE_LOCAL_TEST -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-core/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/libnop/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/json/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-android-unity-example/depthai-android-api/depthai-android-api/src/main/include depthai_android_api.cpp -o depth -L. -ldepthai
+
 #ifndef PIPELINE_LOCAL_TEST
 #include <android/log.h>
 
@@ -10,6 +13,7 @@
 #include "depthai/depthai.hpp"
 
 #include <iostream>
+#include <cstdarg>
 #include <sstream> 
 #include <fstream>
 #include <chrono>
@@ -20,6 +24,7 @@
 #define LOG_TAG "depthaiAndroid"
 #define log(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, __VA_ARGS__)
 
+#ifndef PIPELINE_LOCAL_TEST
 JNIEnv* jni_env = NULL;
 JavaVM* JVM;
 
@@ -35,6 +40,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 
 extern "C"
 {
+#endif
     using namespace std;
 
     std::shared_ptr<dai::Device> device;
@@ -82,7 +88,9 @@ extern "C"
 
     void api_log(const char *format, ...)
     {
+	#ifndef PIPELINE_LOCAL_TEST
         log("0. format: %s", format);
+	#endif
 	std::stringstream ss;
         /*
         va_list args;
@@ -126,7 +134,9 @@ extern "C"
 	va_end (args);
 
 
+	#ifndef PIPELINE_LOCAL_TEST
         log("%s", ss.str().c_str());
+	#endif
         v_info.logfile << ss.str() << std::endl;
      
         va_end(args);
@@ -144,9 +154,11 @@ extern "C"
     {
 	api_open_logfile(std::string(reinterpret_cast<char const*>(external_storage_path)));
 
+	#ifndef PIPELINE_LOCAL_TEST
         // libusb
         auto r = libusb_set_option(nullptr, LIBUSB_OPTION_ANDROID_JNIENV, jni_env);
         api_log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
+	#endif
 
         // Create pipeline
         dai::Pipeline pipeline;
@@ -195,7 +207,9 @@ extern "C"
         device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
 
         auto device_info = device->getDeviceInfo();
+	#ifndef PIPELINE_LOCAL_TEST
         api_log("%s",device_info.toString().c_str());
+	#endif
 
         // Output queue will be used to get the rgb frames from the output defined above
         qRgb = device->getOutputQueue("rgb", 4, false);
@@ -309,17 +323,24 @@ extern "C"
         camRgb->video.link(ve2->input);
         monoRight->out.link(ve3->input);
 
+        api_log("H.264/H.265 video encoders linking done");
+
         ve1->bitstream.link(ve1Out->input);
         ve2->bitstream.link(ve2Out->input);
         ve3->bitstream.link(ve3Out->input);
+
+        api_log("H.264/H.265 video encoders bitstream linking done");
     
         // Connect to device and start pipeline
         dai::Device device(pipeline);
+
+        api_log("DepthAI device created");
     
         // Output queues will be used to get the encoded data from the output defined above
         auto outQ1 = device.getOutputQueue("ve1Out", 30, true);
         auto outQ2 = device.getOutputQueue("ve2Out", 30, true);
         auto outQ3 = device.getOutputQueue("ve3Out", 30, true);
+
         api_log("Output queues created");
     
         // The .h264 / .h265 files are raw stream files (not playable yet)
@@ -374,7 +395,9 @@ extern "C"
 
             return v_info.frame_counter++;
     }
+#ifndef PIPELINE_LOCAL_TEST
 }
+#endif
 
 
 
