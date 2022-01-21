@@ -102,7 +102,7 @@ public class DepthaiManager : MonoBehaviour
         // Initialize native API
         //api_start_device(RGBWidth, RGBHeight);
         string external_storage_path = Application.persistentDataPath;
-	api_start_device_record_video(external_storage_path);
+	api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
         _deviceRunning = true;
     }
     
@@ -118,7 +118,7 @@ public class DepthaiManager : MonoBehaviour
 
     // void api_start_device_record_video(unsigned char* cstr_fname_prefix)
     [DllImport("depthai_android_api")]
-    private static extern void api_start_device_record_video(string external_storage_path);
+    private static extern void api_start_device_record_video(int rgbWidth, int rgbHeight, string external_storage_path);
     
     [DllImport("depthai_android_api")]
     private static extern ulong api_get_video_frames();
