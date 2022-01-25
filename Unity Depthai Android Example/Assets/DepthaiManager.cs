@@ -36,12 +36,6 @@ public class DepthaiManager : MonoBehaviour
     // Start is called before the first frame update
     private void Start()
     {
-	/*
-        string external_storage_path = Application.persistentDataPath;
-	System.IO.File.WriteAllText(external_storage_path + "/porcogiuda.txt", "porco giuda");
-	string filename = Application.persistentDataPath + "/perbacco.txt";
-	System.IO.File.WriteAllText(filename, "perbacchissimo");
-	*/
         string external_storage_path = Application.persistentDataPath;
 	Debug.Log("External storage path: " + external_storage_path);
 
@@ -58,24 +52,22 @@ public class DepthaiManager : MonoBehaviour
     {
         if(!_deviceRunning) return;
        
-	/* 
         var rgbFrameNum = api_get_rgb_image(_rgbImgPtr);
         var disparityFrameNum = api_get_color_disparity_image(_disparityImgPtr);
-	*/
+	/* 
 	var rgbFrameNum = api_get_video_frames();
 	var disparityFrameNum = -1;
+	*/
 
         // Update frame number text
         RGBFrameNumText.text = $"RGB Frame: {rgbFrameNum}";
         DisparityFrameNumText.text = $"Disparity Frame: {disparityFrameNum}";
         
         // Update images
-	/*
         _rgbImgTexture.SetPixels32(_rgbImgData);
         _disparityImgTexture.SetPixels32(_disparityImgData);
         _rgbImgTexture.Apply();
         _disparityImgTexture.Apply();
-	*/
     }
     
     private void InitTextures()
@@ -99,10 +91,11 @@ public class DepthaiManager : MonoBehaviour
     
     public void ConnectDevice()
     {
-        // Initialize native API
-        //api_start_device(RGBWidth, RGBHeight);
         string external_storage_path = Application.persistentDataPath;
-	api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
+
+        // Initialize native API
+        api_start_device(RGBWidth, RGBHeight, external_storage_path);
+	//var retval =  api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
         _deviceRunning = true;
     }
     
@@ -116,9 +109,8 @@ public class DepthaiManager : MonoBehaviour
     [DllImport("depthai_android_api")]
     private static extern uint api_get_color_disparity_image(IntPtr disparityImagePtr);
 
-    // void api_start_device_record_video(unsigned char* cstr_fname_prefix)
     [DllImport("depthai_android_api")]
-    private static extern void api_start_device_record_video(int rgbWidth, int rgbHeight, string external_storage_path);
+    private static extern int api_start_device_record_video(int rgbWidth, int rgbHeight, string external_storage_path);
     
     [DllImport("depthai_android_api")]
     private static extern ulong api_get_video_frames();
