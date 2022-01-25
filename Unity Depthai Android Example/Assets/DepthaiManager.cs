@@ -13,11 +13,17 @@ public class DepthaiManager : MonoBehaviour
     [SerializeField] private RawImage RgbImage;
     [SerializeField] private Text DisparityFrameNumText;
     [SerializeField] private RawImage ColorDisparityImage;
-    
+
+    /*
     private const int RGBWidth = 640;
     private const int RGBHeight = 480;
     private const int DisparityWidth = 640;
     private const int DisparityHeight = 400;
+    */
+    private const int RGBWidth = 1920;
+    private const int RGBHeight = 1080;
+    private const int DisparityWidth = 1280;
+    private const int DisparityHeight = 720;
     
     private Texture2D _rgbImgTexture;
     private Texture2D _disparityImgTexture;
@@ -51,13 +57,15 @@ public class DepthaiManager : MonoBehaviour
     private void Update()
     {
         if(!_deviceRunning) return;
-       
+
+        /*
+	var videoFrameNum = api_get_video_frames();
+	Debug.Log("Retrieved video frames no.: " + videoFrameNum);
+        */
         var rgbFrameNum = api_get_rgb_image(_rgbImgPtr);
+	// Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
         var disparityFrameNum = api_get_color_disparity_image(_disparityImgPtr);
-	/* 
-	var rgbFrameNum = api_get_video_frames();
-	var disparityFrameNum = -1;
-	*/
+	//Debug.Log("Retrieved disparity image no.: " + disparityFrameNum);
 
         // Update frame number text
         RGBFrameNumText.text = $"RGB Frame: {rgbFrameNum}";
@@ -75,6 +83,9 @@ public class DepthaiManager : MonoBehaviour
         // Initialize the output textures
         _rgbImgTexture = new Texture2D(RGBWidth, RGBHeight, TextureFormat.ARGB32, false);
         _disparityImgTexture = new Texture2D(DisparityWidth, DisparityHeight, TextureFormat.ARGB32, false);
+
+	Debug.Log("RGB image texture size: " + _rgbImgTexture.width + " x " + _rgbImgTexture.height);
+	Debug.Log("Disparity image texture size: " + _disparityImgTexture.width + " x " + _disparityImgTexture.height);
         
         // Initialize the output image container arrays
         _rgbImgData = _rgbImgTexture.GetPixels32();
@@ -94,8 +105,8 @@ public class DepthaiManager : MonoBehaviour
         string external_storage_path = Application.persistentDataPath;
 
         // Initialize native API
-        api_start_device(RGBWidth, RGBHeight, external_storage_path);
-	//var retval =  api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
+        //api_start_device(RGBWidth, RGBHeight, external_storage_path);
+	var retval =  api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
         _deviceRunning = true;
     }
     
