@@ -1,8 +1,6 @@
 #include <chrono>
 #include <string>
 
-// g++ -DPIPELINE_LOCAL_TEST -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-core/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/libnop/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-shared/json/include -I/mnt/btrfs-data/venvs/ml-tutorials/repos/depthai-android-unity-example/depthai-android-api/depthai-android-api/src/main/include depthai_android_api.cpp -o depth -L. -ldepthai
-
 #ifndef PIPELINE_LOCAL_TEST
 #include <android/log.h>
 
@@ -53,10 +51,6 @@ extern "C"
 
     int color_fps = 15;
     int mono_fps = 15;
-    /*
-    int disparityWidth = -1;
-    int disparityHeight = -1;
-    */
 
     // Closer-in minimum depth, disparity range is doubled (from 95 to 190):
     std::atomic<bool> extended_disparity{false};
@@ -202,7 +196,6 @@ extern "C"
         colorDisparityBuffer.resize(disparityWidth*disparityHeight*4);
 
         api_log("Device Connected!");
-        //v_info.logfile << "Device Connected!" << std::endl;
     }
 
     unsigned int api_get_rgb_image(unsigned char* unityImageBuffer)
@@ -229,7 +222,6 @@ extern "C"
                 rgbImageBuffer[argb_index++] = imgData[rgb_index++]; // green
                 rgbImageBuffer[argb_index++] = imgData[rgb_index++]; // blue
                 rgbImageBuffer[argb_index++] = 255; // alpha
-
             }
         }
 
@@ -321,10 +313,6 @@ extern "C"
         camRgb->setInterleaved(true);
         camRgb->setColorOrder(dai::ColorCameraProperties::ColorOrder::RGB);
 
-	/*
-        monoLeft->setResolution(dai::MonoCameraProperties::SensorResolution::THE_720_P);
-        monoRight->setResolution(dai::MonoCameraProperties::SensorResolution::THE_720_P);
-	*/
 
         monoLeft->setResolution(dai::MonoCameraProperties::SensorResolution::THE_400_P);
         monoLeft->setFps(mono_fps);
@@ -332,6 +320,7 @@ extern "C"
         monoRight->setFps(mono_fps);
 
         stereo->initialConfig.setConfidenceThreshold(245);
+
         // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
         stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
         stereo->setLeftRightCheck(lr_check);
@@ -375,22 +364,11 @@ extern "C"
         veRightOut->setStreamName("veRightOut");
     
         // Create encoders, one for each camera, consuming the frames and encoding them using H.264 / H.265 encoding
-	/*
-        veLeft->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // left
-        veRgb->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
-        veRight->setDefaultProfilePreset(30, dai::VideoEncoderProperties::Profile::H264_MAIN);      // right
-        api_log("H.264/H.265 video encoders created");
-	*/
-	/**/
-        veLeft->setDefaultProfilePreset(monoLeft->getFps(),  dai::VideoEncoderProperties::Profile::H265_MAIN);      // left
-        veRgb->setDefaultProfilePreset(camRgb->getFps(),    dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
+        veLeft->setDefaultProfilePreset(monoLeft->getFps(),   dai::VideoEncoderProperties::Profile::H265_MAIN);      // left
+        veRgb->setDefaultProfilePreset(camRgb->getFps(),      dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
         veRight->setDefaultProfilePreset(monoRight->getFps(), dai::VideoEncoderProperties::Profile::H265_MAIN);      // right
         api_log("H.264/H.265 video encoders created - RGB-FPS: %f - L-FPS: %f - R-FPS: %f", camRgb->getFps(), monoLeft->getFps(), monoRight->getFps());
-	/**/
     
-        #if 0
-	device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
-        #endif
 	bool exception_thrown = false;
 	try
 	{
@@ -436,9 +414,7 @@ extern "C"
         api_log("Output queues created");
 
 	std::stringstream curr_date_time;
-	// auto now = std::chrono::system_clock::now();
 	auto now = return_next_full_second();
-	// auto now_s = std::chrono::round<std::chrono::seconds>(now);
 	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// No effect sadly :(
 	auto curr_date_time_str = curr_date_time.str();
 	auto pos = curr_date_time_str.find("."); 
@@ -480,30 +456,10 @@ extern "C"
         auto out = outQ->get<dai::ImgFrame>();
         videoFile.write((char*)out->getData().data(), out->getData().size());
 
-        // std::cout << typeid(out->getData().size()).name() << '\n';
-
         return out->getData().size();   // compressed size of the H.264/H.265 frame
     }
     unsigned long api_get_video_frames()
     {
-        /*
-            auto out1 = v_info.outQ1->get<dai::ImgFrame>();
-            v_info.videoFile1.write((char*)out1->getData().data(), out1->getData().size());
-            auto out2 = v_info.outQ2->get<dai::ImgFrame>();
-            v_info.videoFile2.write((char*)out2->getData().data(), out2->getData().size());
-            auto out3 = v_info.outQ3->get<dai::ImgFrame>();
-            v_info.videoFile3.write((char*)out3->getData().data(), out3->getData().size());
-
-        std::shared_ptr<dai::DataOutputQueue> qRgb;
-        std::shared_ptr<dai::DataOutputQueue> qDisparity;
-        std::shared_ptr<dai::DataOutputQueue> qDepth;
-        */
-            /*
-            std::cout << "Q1 size: " << api_write_one_video_frame(v_info.outQ1, v_info.videoFile1) << std::endl;
-            std::cout << "Q2 size: " << api_write_one_video_frame(v_info.outQ2, v_info.videoFile2) << std::endl;
-            std::cout << "Q3 size: " << api_write_one_video_frame(v_info.outQ3, v_info.videoFile3) << std::endl;
-            */
-
             api_write_one_video_frame(v_info.outQ1, v_info.videoFile1);
             api_write_one_video_frame(v_info.outQ2, v_info.videoFile2);
             api_write_one_video_frame(v_info.outQ3, v_info.videoFile3);
