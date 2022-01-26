@@ -65,17 +65,24 @@ extern "C"
 
     struct video_info
     {
-        std::shared_ptr<dai::DataOutputQueue> outQLeft;
         std::shared_ptr<dai::DataOutputQueue> outQRgb;
+        std::ofstream videoFileRgb;
+
+	#ifdef ENCODE_RGB_L_R
+        std::shared_ptr<dai::DataOutputQueue> outQLeft;
+        std::ofstream videoFileLeft;
         std::shared_ptr<dai::DataOutputQueue> outQRight;
+        std::ofstream videoFileRight;
+	#else
+        std::shared_ptr<dai::DataOutputQueue> outQDisp;
+        std::ofstream videoFileDisp;
+        std::shared_ptr<dai::DataOutputQueue> outQRectRight;
+        std::ofstream videoFileRectRight;
+	#endif
 
         std::shared_ptr<dai::DataOutputQueue> qRgb;
         std::shared_ptr<dai::DataOutputQueue> qDisparity;
         std::shared_ptr<dai::DataOutputQueue> qDepth;
-
-        std::ofstream videoFileLeft;
-        std::ofstream videoFileRgb;
-        std::ofstream videoFileRight;
 
         std::ofstream logfile;
 
@@ -244,9 +251,17 @@ extern "C"
 
         stereo->initialConfig.setConfidenceThreshold(245);
 
+	#ifndef ENCODE_RGB_L_R
+	auto xoutRectRight = pipeline.create<dai::node::XLinkOut>();
+	xoutRectRight->setStreamName("rectRight");
+	stereo->rectifiedRight.link(xoutRectRight->input);
+	#endif
+
+
         // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
         stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
         stereo->setLeftRightCheck(lr_check);
+        stereo->setRectifyEdgeFillColor(0);
         stereo->setExtendedDisparity(extended_disparity);
         stereo->setSubpixel(subpixel);
 
@@ -258,7 +273,7 @@ extern "C"
         stereo->depth.link(xoutDepth->input);
 
 
-
+	#ifdef ENCODE_RGB_L_R
         auto veLeft = pipeline.create<dai::node::VideoEncoder>();
         auto veRgb = pipeline.create<dai::node::VideoEncoder>();
         auto veRight = pipeline.create<dai::node::VideoEncoder>();
@@ -266,7 +281,6 @@ extern "C"
         auto veLeftOut = pipeline.create<dai::node::XLinkOut>();
         auto veRgbOut = pipeline.create<dai::node::XLinkOut>();
         auto veRightOut = pipeline.create<dai::node::XLinkOut>();
-
 
         // Linking
         monoLeft->out.link(veLeft->input);
@@ -291,6 +305,39 @@ extern "C"
         veRgb->setDefaultProfilePreset(camRgb->getFps(),      dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
         veRight->setDefaultProfilePreset(monoRight->getFps(), dai::VideoEncoderProperties::Profile::H265_MAIN);      // right
         api_log("H.264/H.265 video encoders created - RGB-FPS: %f - L-FPS: %f - R-FPS: %f", camRgb->getFps(), monoLeft->getFps(), monoRight->getFps());
+	#else
+        auto veDisp = pipeline.create<dai::node::VideoEncoder>();
+        auto veRgb = pipeline.create<dai::node::VideoEncoder>();
+        auto veRectRight = pipeline.create<dai::node::VideoEncoder>();
+    
+        auto veDispOut = pipeline.create<dai::node::XLinkOut>();
+        auto veRgbOut = pipeline.create<dai::node::XLinkOut>();
+        auto veRectRightOut = pipeline.create<dai::node::XLinkOut>();
+
+        // Linking
+        stereo->disparity.link(veDisp->input);
+        camRgb->video.link(veRgb->input);
+        monoRight->out.link(veRectRight->input);
+
+        api_log("H.264/H.265 video encoders linking done");
+
+        veDisp->bitstream.link(veDispOut->input);
+        veRgb->bitstream.link(veRgbOut->input);
+        veRectRight->bitstream.link(veRectRightOut->input);
+
+        api_log("H.264/H.265 video encoders bitstream linking done");
+
+
+        veDispOut->setStreamName("veDispOut");
+        veRgbOut->setStreamName("veRgbOut");
+        veRectRightOut->setStreamName("veRectRightOut");
+    
+        // Create encoders, one for each camera, consuming the frames and encoding them using H.264 / H.265 encoding
+        veDisp->setDefaultProfilePreset(monoLeft->getFps(),       dai::VideoEncoderProperties::Profile::H265_MAIN);      // disp
+        veRgb->setDefaultProfilePreset(camRgb->getFps(),          dai::VideoEncoderProperties::Profile::H265_MAIN);      // RGB
+        veRectRight->setDefaultProfilePreset(monoRight->getFps(), dai::VideoEncoderProperties::Profile::H265_MAIN);      // rectRight
+        api_log("H.264/H.265 video encoders created - RGB-FPS: %f - D-FPS: %f - RR-FPS: %f", camRgb->getFps(), monoLeft->getFps(), monoRight->getFps());
+	#endif
     
 	bool exception_thrown = false;
 	try
@@ -329,6 +376,7 @@ extern "C"
 
 
     
+	#ifdef ENCODE_RGB_L_R
         // Output queues will be used to get the encoded data from the output defined above
         auto outQLeft = device->getOutputQueue("veLeftOut", 1, false);
         auto outQRgb = device->getOutputQueue("veRgbOut", 1, false);
@@ -354,6 +402,33 @@ extern "C"
         v_info.outQLeft = outQLeft;
         v_info.outQRgb = outQRgb;
         v_info.outQRight = outQRight;
+	#else
+        // Output queues will be used to get the encoded data from the output defined above
+        auto outQDisp = device->getOutputQueue("veDispOut", 1, false);
+        auto outQRgb = device->getOutputQueue("veRgbOut", 1, false);
+        auto outQRectRight = device->getOutputQueue("veRectRightOut", 1, false);
+
+        api_log("Output queues created");
+
+	std::stringstream curr_date_time;
+	auto now = return_next_full_second();
+	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// No effect sadly :(
+	auto curr_date_time_str = curr_date_time.str();
+	auto pos = curr_date_time_str.find("."); 
+
+        // The H.264/H.265 files are raw stream files (not playable yet)
+	std::string disp_fn  = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-disp.h265" );
+	std::string color_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-color.h265");
+	std::string rright_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-rright.h265");
+        v_info.videoFileDisp = std::ofstream(disp_fn , std::ios::binary);
+        v_info.videoFileRgb = std::ofstream(color_fn, std::ios::binary);
+        v_info.videoFileRectRight = std::ofstream(rright_fn, std::ios::binary);
+        api_log("Output files opened (%s - %s - %s)", disp_fn.c_str(), color_fn.c_str(), rright_fn.c_str());
+
+        v_info.outQDisp = outQDisp;
+        v_info.outQRgb = outQRgb;
+        v_info.outQRectRight = outQRectRight;
+	#endif
 
 
         // Output queue will be used to get the rgb frames from the output defined above
@@ -383,9 +458,14 @@ extern "C"
     }
     unsigned long api_get_video_frames()
     {
-            api_write_one_video_frame(v_info.outQLeft, v_info.videoFileLeft);
             api_write_one_video_frame(v_info.outQRgb, v_info.videoFileRgb);
+	    #ifdef ENCODE_RGB_L_R
+            api_write_one_video_frame(v_info.outQLeft, v_info.videoFileLeft);
             api_write_one_video_frame(v_info.outQRight, v_info.videoFileRight);
+	    #else
+            api_write_one_video_frame(v_info.outQDisp, v_info.videoFileDisp);
+            api_write_one_video_frame(v_info.outQRectRight, v_info.videoFileRectRight);
+	    #endif
 
 	    v_info.frame_counter++;
 	    if (v_info.frame_counter % 1000 == 0)
