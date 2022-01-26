@@ -1,102 +1,48 @@
 {
     "m_SelectedDeviceId": "d5f60291",
     "m_SelectedPackage": {
-        "deviceId": "d5f60291",
-        "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-        "processId": 15130,
+        "deviceId": "",
+        "name": "",
+        "processId": 0,
         "exited": false
     },
     "m_SelectedPriority": 0,
     "m_KnownPackagesForSerialization": [
         {
             "deviceId": "d5f60291",
-            "name": "net.oneplus.launcher",
-            "processId": 27779,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.termux",
-            "processId": 17177,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 29745,
+            "processId": 22794,
             "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 30767,
+            "processId": 26081,
             "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 31162,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 31634,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 32656,
+            "processId": 27872,
             "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.ghisler.android.TotalCommander",
-            "processId": 26958,
+            "processId": 3383,
             "exited": false
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 2877,
-            "exited": false
+            "processId": 29276,
+            "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 3667,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 5137,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 5776,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 6183,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 14641,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 15130,
-            "exited": false
+            "processId": 29952,
+            "exited": true
         }
     ],
     "m_Tags": {
@@ -149,7 +95,7 @@
         "MemoryGroup": 2,
         "Behavior": 0
     },
-    "m_Filter": "",
+    "m_Filter": "texture",
     "m_FilterIsRegularExpression": false,
     "m_SymbolPaths": []
 }
