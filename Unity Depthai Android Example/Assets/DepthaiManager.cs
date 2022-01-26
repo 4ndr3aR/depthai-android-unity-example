@@ -14,16 +14,26 @@ public class DepthaiManager : MonoBehaviour
     [SerializeField] private Text DisparityFrameNumText;
     [SerializeField] private RawImage ColorDisparityImage;
 
-    /*
     private const int RGBWidth = 640;
-    private const int RGBHeight = 480;
+    private const int RGBHeight = 360;
+    /*
+    private const int DisparityWidth = 1280;
+    private const int DisparityHeight = 720;
+    */
     private const int DisparityWidth = 640;
     private const int DisparityHeight = 400;
-    */
+
+    private const int recv_img_debug_verbosity = 1000;
+
+    // This is too slow, filled with errors like:
+    // 2022/01/26 11:32:54.139 26124 26150 Error Unity SetPixels32 called with invalid number of pixels in the array
+    // and after a few hundreds frames, the update freezes
+    /*
     private const int RGBWidth = 1920;
     private const int RGBHeight = 1080;
     private const int DisparityWidth = 1280;
     private const int DisparityHeight = 720;
+    */
     
     private Texture2D _rgbImgTexture;
     private Texture2D _disparityImgTexture;
@@ -58,14 +68,24 @@ public class DepthaiManager : MonoBehaviour
     {
         if(!_deviceRunning) return;
 
-        /*
 	var videoFrameNum = api_get_video_frames();
-	Debug.Log("Retrieved video frames no.: " + videoFrameNum);
-        */
+	//Debug.Log("Retrieved video frames no.: " + videoFrameNum);
+	if (videoFrameNum % recv_img_debug_verbosity == 0)
+	{
+		Debug.Log("Retrieved video frames no.: " + videoFrameNum);
+	}
         var rgbFrameNum = api_get_rgb_image(_rgbImgPtr);
-	// Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
+	//Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
+	if (rgbFrameNum % recv_img_debug_verbosity == 0)
+	{
+		Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
+	}
         var disparityFrameNum = api_get_color_disparity_image(_disparityImgPtr);
 	//Debug.Log("Retrieved disparity image no.: " + disparityFrameNum);
+	if (rgbFrameNum % recv_img_debug_verbosity == 0)
+	{
+		Debug.Log("Retrieved disparity image no.: " + disparityFrameNum);
+	}
 
         // Update frame number text
         RGBFrameNumText.text = $"RGB Frame: {rgbFrameNum}";
@@ -105,14 +125,14 @@ public class DepthaiManager : MonoBehaviour
         string external_storage_path = Application.persistentDataPath;
 
         // Initialize native API
-        //api_start_device(RGBWidth, RGBHeight, external_storage_path);
-	var retval =  api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path);
+        //api_start_device(RGBWidth, RGBHeight, DisparityWidth, DisparityHeight, external_storage_path);
+	var retval =  api_start_device_record_video(RGBWidth, RGBHeight, DisparityWidth, DisparityHeight, external_storage_path);
         _deviceRunning = true;
     }
     
     
     [DllImport("depthai_android_api")]
-    private static extern void api_start_device(int rgbWidth, int rgbHeight, string external_storage_path);
+    private static extern void api_start_device(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, string external_storage_path);
     
     [DllImport("depthai_android_api")]
     private static extern uint api_get_rgb_image(IntPtr rgbImagePtr);
@@ -121,7 +141,7 @@ public class DepthaiManager : MonoBehaviour
     private static extern uint api_get_color_disparity_image(IntPtr disparityImagePtr);
 
     [DllImport("depthai_android_api")]
-    private static extern int api_start_device_record_video(int rgbWidth, int rgbHeight, string external_storage_path);
+    private static extern int api_start_device_record_video(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, string external_storage_path);
     
     [DllImport("depthai_android_api")]
     private static extern ulong api_get_video_frames();

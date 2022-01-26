@@ -10,38 +10,44 @@
     "m_KnownPackagesForSerialization": [
         {
             "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 22794,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 26081,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 27872,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
             "name": "com.ghisler.android.TotalCommander",
-            "processId": 3383,
+            "processId": 22659,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "net.oneplus.launcher",
+            "processId": 18774,
             "exited": false
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 29276,
+            "processId": 31789,
             "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 29952,
+            "processId": 3412,
+            "exited": true
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 4822,
+            "exited": true
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 7186,
+            "exited": true
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 8977,
             "exited": true
         }
     ],
@@ -95,7 +101,7 @@
         "MemoryGroup": 2,
         "Behavior": 0
     },
-    "m_Filter": "texture",
+    "m_Filter": "",
     "m_FilterIsRegularExpression": false,
     "m_SymbolPaths": []
 }
