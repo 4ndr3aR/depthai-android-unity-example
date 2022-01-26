@@ -5,7 +5,10 @@
 #ifndef DEPTHAI_ANDROID_API_UTILS_H
 #define DEPTHAI_ANDROID_API_UTILS_H
 
-void colorDisparity(uint8_t *colorDisparity, uint8_t disparity, uint8_t maxDisparity) {
+#include <chrono>
+
+void colorDisparity(uint8_t *colorDisparity, uint8_t disparity, uint8_t maxDisparity)
+{
     // Ref: https://www.particleincell.com/2014/colormap
 
     uint8_t r, g, b;
@@ -40,6 +43,14 @@ void colorDisparity(uint8_t *colorDisparity, uint8_t disparity, uint8_t maxDispa
     colorDisparity[0] = r;
     colorDisparity[1] = g;
     colorDisparity[2] = b;
+}
+
+std::chrono::system_clock::time_point return_next_full_second()
+{
+    using namespace std::chrono;
+    system_clock::time_point now = system_clock::now();
+    auto s = duration_cast<seconds>(now.time_since_epoch());
+    return system_clock::time_point(++s);
 }
 
 #endif //DEPTHAI_ANDROID_API_UTILS_H

@@ -104,6 +104,8 @@ extern "C"
 
 	#ifndef PIPELINE_LOCAL_TEST
         log("%s", ss.str().c_str());
+	#else
+	std::cout << std::fixed << std::setprecision(3) << ss.str().c_str() << std::endl;		// no effect on date-time format
 	#endif
         v_info.logfile << ss.str() << std::endl;
      
@@ -246,7 +248,7 @@ extern "C"
     }
 
 
-    void api_start_device_record_video(int rgbWidth, int rgbHeight, const char* external_storage_path)
+    int api_start_device_record_video(int rgbWidth, int rgbHeight, const char* external_storage_path)
     {
    	std::string ext_storage_path = std::string(reinterpret_cast<char const*>(external_storage_path));
 	api_open_logfile(ext_storage_path);
@@ -332,10 +334,35 @@ extern "C"
 
         api_log("H.264/H.265 video encoders bitstream linking done");
    
+	bool exception_thrown = false;
+	try
+	{
+	        // Connect to device and start pipeline
+	        device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
+	}
+	catch (const std::overflow_error & err)
+	{
+		exception_thrown = true;
+        	api_log("Overflow error exception: «%s». Exiting...", err.what());
+	} // this executes if f() throws std::overflow_error (same type rule)
+	catch (const std::runtime_error & err)
+	{
+		exception_thrown = true;
+        	api_log("Runtime error exception: «%s». Exiting...", err.what());
+	} // this executes if f() throws std::underflow_error (base class rule)
+	catch (const std::exception & err)
+	{
+		exception_thrown = true;
+        	api_log("Unknown exception: «%s». Exiting...", err.what());
+	} // this executes if f() throws std::logic_error (base class rule)
+	catch (...)
+	{
+		exception_thrown = true;
+        	api_log("Unknown exception. Exiting...");
+	} // this executes if f() throws std::string or int or any other unrelated type
+	if (exception_thrown)
+		return -1;
 
- 
-        // Connect to device and start pipeline
-        device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
         api_log("DepthAI device created");
         auto device_info = device->getDeviceInfo();
 	#ifndef PIPELINE_LOCAL_TEST
@@ -350,11 +377,19 @@ extern "C"
         auto outQ3 = device->getOutputQueue("ve3Out", 30, true);
 
         api_log("Output queues created");
-    
+
+	std::stringstream curr_date_time;
+	// auto now = std::chrono::system_clock::now();
+	auto now = return_next_full_second();
+	// auto now_s = std::chrono::round<std::chrono::seconds>(now);
+	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// No effect sadly :(
+	auto curr_date_time_str = curr_date_time.str();
+	auto pos = curr_date_time_str.find("."); 
+
         // The H.264/H.265 files are raw stream files (not playable yet)
-	std::string left_fn  = fname_prefix + std::string("left.h264" );
-	std::string color_fn = fname_prefix + std::string("color.h265");
-	std::string right_fn = fname_prefix + std::string("right.h264");
+	std::string left_fn  = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-left.h264" );
+	std::string color_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-color.h265");
+	std::string right_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-right.h264");
         v_info.videoFile1 = std::ofstream(left_fn , std::ios::binary);
         v_info.videoFile2 = std::ofstream(color_fn, std::ios::binary);
         v_info.videoFile3 = std::ofstream(right_fn, std::ios::binary);
@@ -380,6 +415,8 @@ extern "C"
         colorDisparityBuffer.resize(disparityWidth*disparityHeight*4);
 
         api_log("Device Connected!");
+
+	return 0;
     }
     unsigned long api_write_one_video_frame(std::shared_ptr<dai::DataOutputQueue> outQ, std::ofstream & videoFile)
     {
@@ -435,7 +472,9 @@ int main()
         int RGBHeight = 480;
         std::string external_storage_path = "/tmp/";
 
-        api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path.c_str());
+        int retval = api_start_device_record_video(RGBWidth, RGBHeight, external_storage_path.c_str());
+	if (retval == -1)
+		return retval;
 
         unsigned char* _rgbImgPtr  = new unsigned char[rgbImageBuffer.size()];
         unsigned char* _dispImgPtr = new unsigned char[colorDisparityBuffer.size()];

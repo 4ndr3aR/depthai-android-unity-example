@@ -1,9 +1,9 @@
 {
     "m_SelectedDeviceId": "d5f60291",
     "m_SelectedPackage": {
-        "deviceId": "",
-        "name": "",
-        "processId": 0,
+        "deviceId": "d5f60291",
+        "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+        "processId": 15130,
         "exited": false
     },
     "m_SelectedPriority": 0,
@@ -16,36 +16,6 @@
         },
         {
             "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 21424,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 23506,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 24012,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 24825,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 25676,
-            "exited": true
-        },
-        {
-            "deviceId": "d5f60291",
             "name": "com.termux",
             "processId": 17177,
             "exited": false
@@ -53,37 +23,79 @@
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-            "processId": 26539,
-            "exited": false
-        },
-        {
-            "deviceId": "d5f60291",
-            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 29745,
-            "exited": false
+            "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 30767,
-            "exited": false
+            "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 31162,
-            "exited": false
+            "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 31634,
-            "exited": false
+            "exited": true
         },
         {
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 32656,
+            "exited": true
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.ghisler.android.TotalCommander",
+            "processId": 26958,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 2877,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 3667,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 5137,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 5776,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 6183,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 14641,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 15130,
             "exited": false
         }
     ],
