@@ -69,19 +69,16 @@ public class DepthaiManager : MonoBehaviour
         if(!_deviceRunning) return;
 
 	var videoFrameNum = api_get_video_frames();
-	//Debug.Log("Retrieved video frames no.: " + videoFrameNum);
 	if (videoFrameNum % recv_img_debug_verbosity == 0)
 	{
 		Debug.Log("Retrieved video frames no.: " + videoFrameNum);
 	}
         var rgbFrameNum = api_get_rgb_image(_rgbImgPtr);
-	//Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
 	if (rgbFrameNum % recv_img_debug_verbosity == 0)
 	{
 		Debug.Log("Retrieved RGB image no.: " + rgbFrameNum);
 	}
         var disparityFrameNum = api_get_color_disparity_image(_disparityImgPtr);
-	//Debug.Log("Retrieved disparity image no.: " + disparityFrameNum);
 	if (rgbFrameNum % recv_img_debug_verbosity == 0)
 	{
 		Debug.Log("Retrieved disparity image no.: " + disparityFrameNum);
@@ -125,14 +122,13 @@ public class DepthaiManager : MonoBehaviour
         string external_storage_path = Application.persistentDataPath;
 
         // Initialize native API
-        //api_start_device(RGBWidth, RGBHeight, DisparityWidth, DisparityHeight, external_storage_path);
 	var retval =  api_start_device_record_video(RGBWidth, RGBHeight, DisparityWidth, DisparityHeight, external_storage_path);
         _deviceRunning = true;
     }
     
     
     [DllImport("depthai_android_api")]
-    private static extern void api_start_device(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, string external_storage_path);
+    private static extern int api_start_device_record_video(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, string external_storage_path);
     
     [DllImport("depthai_android_api")]
     private static extern uint api_get_rgb_image(IntPtr rgbImagePtr);
@@ -140,9 +136,6 @@ public class DepthaiManager : MonoBehaviour
     [DllImport("depthai_android_api")]
     private static extern uint api_get_color_disparity_image(IntPtr disparityImagePtr);
 
-    [DllImport("depthai_android_api")]
-    private static extern int api_start_device_record_video(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, string external_storage_path);
-    
     [DllImport("depthai_android_api")]
     private static extern ulong api_get_video_frames();
 }
