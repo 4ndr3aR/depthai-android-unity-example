@@ -50,8 +50,8 @@ extern "C"
 
     std::vector<u_char> rgbImageBuffer, colorDisparityBuffer;
 
-    const int disparityWidth = 640;
-    const int disparityHeight = 400;
+    int disparityWidth = -1;
+    int disparityHeight = -1;
 
     // Closer-in minimum depth, disparity range is doubled (from 95 to 190):
     std::atomic<bool> extended_disparity{false};
@@ -122,7 +122,11 @@ extern "C"
 
     void api_start_device(int rgbWidth, int rgbHeight, const char* external_storage_path)
     {
-	api_open_logfile(std::string(reinterpret_cast<char const*>(external_storage_path)));
+	api_open_logfile(std::string(external_storage_path));
+
+        api_log("api_start_device() - received RGB size for Unity images: %d x %d", rgbWidth, rgbHeight);
+        disparityWidth = rgbWidth;
+        disparityHeight = rgbHeight;
 
 	#ifndef PIPELINE_LOCAL_TEST
         // libusb
@@ -199,6 +203,8 @@ extern "C"
         auto inRgb = qRgb->get<dai::ImgFrame>();
         auto imgData = inRgb->getData();
 
+        // api_log("api_get_rgb_image() received image with size: %d x %d", inRgb->getWidth(), inRgb->getHeight());
+
         // Convert from RGB to RGBA for Unity
         int rgb_index = 0;
         int argb_index = 0;
@@ -227,6 +233,8 @@ extern "C"
         auto disparityData = inDisparity->getData();
         uint8_t colorPixel[3];
 
+        // api_log("api_get_color_disparity_image() received image with size: %d x %d", inDisparity->getWidth(), inDisparity->getHeight());
+
         // Convert Disparity to RGBA format for Unity
         int argb_index = 0;
         for (int i = 0; i < disparityWidth*disparityHeight; i++)
@@ -250,8 +258,18 @@ extern "C"
 
     int api_start_device_record_video(int rgbWidth, int rgbHeight, const char* external_storage_path)
     {
-   	std::string ext_storage_path = std::string(reinterpret_cast<char const*>(external_storage_path));
+   	std::string ext_storage_path = std::string(external_storage_path);
 	api_open_logfile(ext_storage_path);
+
+        api_log("api_start_device() - received RGB size for Unity images: %d x %d", rgbWidth, rgbHeight);
+        disparityWidth = rgbWidth;
+        disparityHeight = rgbHeight;
+
+	#ifndef PIPELINE_LOCAL_TEST
+        // libusb
+        auto r = libusb_set_option(nullptr, LIBUSB_OPTION_ANDROID_JNIENV, jni_env);
+        api_log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
+	#endif
 
         std::string fname_prefix = ext_storage_path + "/depthai-video-";
 
@@ -333,7 +351,10 @@ extern "C"
         ve3->bitstream.link(ve3Out->input);
 
         api_log("H.264/H.265 video encoders bitstream linking done");
-   
+
+        #if 0
+	device = std::make_shared<dai::Device>(pipeline, dai::UsbSpeed::SUPER);
+        #endif
 	bool exception_thrown = false;
 	try
 	{
