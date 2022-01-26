@@ -1,9 +1,9 @@
 {
     "m_SelectedDeviceId": "d5f60291",
     "m_SelectedPackage": {
-        "deviceId": "",
-        "name": "",
-        "processId": 0,
+        "deviceId": "d5f60291",
+        "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+        "processId": 17629,
         "exited": false
     },
     "m_SelectedPriority": 0,
@@ -49,6 +49,30 @@
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 8977,
             "exited": true
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 11497,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 13769,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 15384,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 17629,
+            "exited": false
         }
     ],
     "m_Tags": {
