@@ -65,17 +65,17 @@ extern "C"
 
     struct video_info
     {
-        std::shared_ptr<dai::DataOutputQueue> outQ1;
-        std::shared_ptr<dai::DataOutputQueue> outQ2;
-        std::shared_ptr<dai::DataOutputQueue> outQ3;
+        std::shared_ptr<dai::DataOutputQueue> outQLeft;
+        std::shared_ptr<dai::DataOutputQueue> outQRgb;
+        std::shared_ptr<dai::DataOutputQueue> outQRight;
 
         std::shared_ptr<dai::DataOutputQueue> qRgb;
         std::shared_ptr<dai::DataOutputQueue> qDisparity;
         std::shared_ptr<dai::DataOutputQueue> qDepth;
 
-        std::ofstream videoFile1;
-        std::ofstream videoFile2;
-        std::ofstream videoFile3;
+        std::ofstream videoFileLeft;
+        std::ofstream videoFileRgb;
+        std::ofstream videoFileRight;
 
         std::ofstream logfile;
 
@@ -330,9 +330,9 @@ extern "C"
 
     
         // Output queues will be used to get the encoded data from the output defined above
-        auto outQ1 = device->getOutputQueue("veLeftOut", 1, false);
-        auto outQ2 = device->getOutputQueue("veRgbOut", 1, false);
-        auto outQ3 = device->getOutputQueue("veRightOut", 1, false);
+        auto outQLeft = device->getOutputQueue("veLeftOut", 1, false);
+        auto outQRgb = device->getOutputQueue("veRgbOut", 1, false);
+        auto outQRight = device->getOutputQueue("veRightOut", 1, false);
 
         api_log("Output queues created");
 
@@ -346,14 +346,14 @@ extern "C"
 	std::string left_fn  = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-left.h265" );
 	std::string color_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-color.h265");
 	std::string right_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-right.h265");
-        v_info.videoFile1 = std::ofstream(left_fn , std::ios::binary);
-        v_info.videoFile2 = std::ofstream(color_fn, std::ios::binary);
-        v_info.videoFile3 = std::ofstream(right_fn, std::ios::binary);
+        v_info.videoFileLeft = std::ofstream(left_fn , std::ios::binary);
+        v_info.videoFileRgb = std::ofstream(color_fn, std::ios::binary);
+        v_info.videoFileRight = std::ofstream(right_fn, std::ios::binary);
         api_log("Output files opened (%s - %s - %s)", left_fn.c_str(), color_fn.c_str(), right_fn.c_str());
 
-        v_info.outQ1 = outQ1;
-        v_info.outQ2 = outQ2;
-        v_info.outQ3 = outQ3;
+        v_info.outQLeft = outQLeft;
+        v_info.outQRgb = outQRgb;
+        v_info.outQRight = outQRight;
 
 
         // Output queue will be used to get the rgb frames from the output defined above
@@ -383,9 +383,9 @@ extern "C"
     }
     unsigned long api_get_video_frames()
     {
-            api_write_one_video_frame(v_info.outQ1, v_info.videoFile1);
-            api_write_one_video_frame(v_info.outQ2, v_info.videoFile2);
-            api_write_one_video_frame(v_info.outQ3, v_info.videoFile3);
+            api_write_one_video_frame(v_info.outQLeft, v_info.videoFileLeft);
+            api_write_one_video_frame(v_info.outQRgb, v_info.videoFileRgb);
+            api_write_one_video_frame(v_info.outQRight, v_info.videoFileRight);
 
 	    v_info.frame_counter++;
 	    if (v_info.frame_counter % 1000 == 0)
