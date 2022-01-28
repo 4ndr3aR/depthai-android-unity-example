@@ -3,7 +3,7 @@
     "m_SelectedPackage": {
         "deviceId": "d5f60291",
         "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
-        "processId": 17629,
+        "processId": 32393,
         "exited": false
     },
     "m_SelectedPriority": 0,
@@ -72,6 +72,18 @@
             "deviceId": "d5f60291",
             "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
             "processId": 17629,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 31089,
+            "exited": false
+        },
+        {
+            "deviceId": "d5f60291",
+            "name": "com.DepthaiAndroid.UnityDepthaiAndroidExample",
+            "processId": 32393,
             "exited": false
         }
     ],

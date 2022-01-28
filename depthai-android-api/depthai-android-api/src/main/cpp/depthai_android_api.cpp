@@ -8,7 +8,7 @@
 #include <jni.h>
 #endif
 
-#include <typeinfo>     // for typeid
+#include <typeinfo>                             // for typeid
 
 #include <iostream>
 #include <cstdarg>
@@ -24,7 +24,10 @@
 #define LOG_TAG "depthaiAndroid"
 #define log(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, __VA_ARGS__)
 
-#ifndef PIPELINE_LOCAL_TEST
+//#define ENCODE_RGB_L_R                        /// Use this define to switch from encoding H.265 videos of RGB+Left+Right to RGB+Disparity+RectifiedRight
+//#define DEQUEUE_WITH_TRYGET                   /// Use this define to switch from blocking queue->get()s to non-blocking queue->tryGet()s (mainly for debugging purposes)
+
+#ifndef PIPELINE_LOCAL_TEST                     /// This define is defined in the CMakeLists.txt file and it's used to remove all the Android/JNI code to compile locally
 JNIEnv* jni_env = NULL;
 JavaVM* JVM;
 
@@ -44,7 +47,7 @@ extern "C"
     using namespace std;
 
     std::shared_ptr<dai::Device> device;
-    std::shared_ptr<dai::DataOutputQueue> qRgb, qDisparity, qDepth;
+    std::shared_ptr<dai::DataOutputQueue> qRgb, qDisparity;
 
     std::vector<u_char> rgbImageBuffer, colorDisparityBuffer;
 
@@ -62,38 +65,38 @@ extern "C"
     std::atomic<bool> lr_check{false};
 
     int recv_img_debug_verbosity = 1000;
+    const bool debug_pkt_queues  = false;
 
-    struct video_info
-    {
-        std::shared_ptr<dai::DataOutputQueue> outQRgb;
-        std::ofstream videoFileRgb;
-
-	#ifdef ENCODE_RGB_L_R
-        std::shared_ptr<dai::DataOutputQueue> outQLeft;
-        std::ofstream videoFileLeft;
-        std::shared_ptr<dai::DataOutputQueue> outQRight;
-        std::ofstream videoFileRight;
-	#else
-        std::shared_ptr<dai::DataOutputQueue> outQDisp;
-        std::ofstream videoFileDisp;
-        std::shared_ptr<dai::DataOutputQueue> outQRectRight;
-        std::ofstream videoFileRectRight;
-	#endif
-
-        std::shared_ptr<dai::DataOutputQueue> qRgb;
-        std::shared_ptr<dai::DataOutputQueue> qDisparity;
-        std::shared_ptr<dai::DataOutputQueue> qDepth;
-
-        std::ofstream logfile;
-
-	std::uint64_t frame_counter = 0;
+    struct stream_info                                                  ///  Let's pack all the needed info in just one place
+    {                                                                   /// (super useful for debugging pipeline locks)
+        std::shared_ptr<dai::DataOutputQueue> outQ;
+        std::ofstream videoFile;
+        std::string queue_name;
+        std::string fname;
+        uint64_t recv_frames = 0;
+        uint64_t lost_frames = 0;
+        stream_info(const std::string & name) : queue_name(name) {}
     };
 
-    video_info v_info;
+    stream_info Rgb("Rgb");
+    #ifdef ENCODE_RGB_L_R
+    stream_info Left("Left");
+    stream_info Right("Right");
+    #else
+    stream_info Disp("Disp");
+    stream_info RectRight("RectRight");
+    #endif
+
+    std::ofstream logfile;
+
+    std::uint64_t frame_counter = 0;
+
+    std::string fname_prefix;
+    std::stringstream curr_date_time;
 
     void api_stop_device()
     {
-        v_info.logfile.close();
+        logfile.close();
     }
 
     void api_log(const char *format, ...)
@@ -113,9 +116,9 @@ extern "C"
 	#ifndef PIPELINE_LOCAL_TEST
         log("%s", ss.str().c_str());
 	#else
-	std::cout << std::fixed << std::setprecision(3) << ss.str().c_str() << std::endl;		// no effect on date-time format
+	std::cout << std::fixed << std::setprecision(3) << ss.str().c_str() << std::endl;		// setprecision() has no effect on date-time format
 	#endif
-        v_info.logfile << ss.str() << std::endl;
+        logfile << ss.str() << std::endl;
      
         va_end(args);
     }
@@ -123,18 +126,29 @@ extern "C"
     void api_open_logfile(std::string external_storage_path)
     {
         std::string logfile_fname = external_storage_path + "/depthai-android-api.log";
-        v_info.logfile.open(logfile_fname, std::ios::app);
+        logfile.open(logfile_fname, std::ios::app);
         api_log("Opening logfile: %s", logfile_fname.c_str());
-        v_info.logfile << logfile_fname + " starting..." << std::endl;
+        logfile << logfile_fname + " starting..." << std::endl;
+    }
+    std::shared_ptr<dai::ImgFrame> api_dequeue(std::shared_ptr<dai::DataOutputQueue> outQ)
+    {
+        #ifdef DEQUEUE_WITH_TRYGET
+        auto out = outQ->tryGet<dai::ImgFrame>();
+        #else
+        auto out = outQ->get<dai::ImgFrame>();
+        #endif
+        return out;
     }
 
     unsigned int api_get_rgb_image(unsigned char* unityImageBuffer)
     {
-        auto inRgb = qRgb->get<dai::ImgFrame>();
+        auto inRgb = api_dequeue(qRgb);
+        if (!inRgb)
+                return -1;
         auto frame_no = inRgb->getSequenceNum();
         auto imgData = inRgb->getData();
 
-	if (inRgb.get() and frame_no % recv_img_debug_verbosity == 0)
+	if (inRgb.get() and (frame_no % recv_img_debug_verbosity == 0) or debug_pkt_queues)
 	{
 		api_log("api_get_rgb_image() received inRgb ptr: %p", inRgb.get());
 		api_log("api_get_rgb_image() received image with size: %d x %d", inRgb->getWidth(), inRgb->getHeight());
@@ -164,12 +178,14 @@ extern "C"
 
     unsigned int api_get_color_disparity_image(unsigned char* unityImageBuffer)
     {
-        auto inDisparity = qDisparity->get<dai::ImgFrame>();;
+        auto inDisparity  = api_dequeue(qDisparity);
+        if (!inDisparity)
+                return -1;
         auto frame_no = inDisparity->getSequenceNum();
         auto disparityData = inDisparity->getData();
         uint8_t colorPixel[3];
 
-	if (inDisparity and frame_no % recv_img_debug_verbosity == 0)
+	if (inDisparity and (frame_no % recv_img_debug_verbosity == 0 or debug_pkt_queues))
 	{
 		api_log("api_get_color_disparity_image() received inDisparity ptr: %p", inDisparity.get());
 		api_log("api_get_color_disparity_image() received image with size: %d x %d", inDisparity->getWidth(), inDisparity->getHeight());
@@ -197,6 +213,19 @@ extern "C"
     }
 
 
+    void videofile_open(stream_info & stream, const std::string & suffix)
+    {
+        std::cout << "asdf: " << curr_date_time.str() << std::endl;
+	auto curr_date_time_str = curr_date_time.str();
+	auto pos = curr_date_time_str.find("."); 
+
+	std::string fn   = fname_prefix + curr_date_time_str.substr(0,pos) + suffix;
+        stream.videoFile = std::ofstream(fn , std::ios::binary);
+        stream.fname     = fn;
+        std::cout << "asdf: " << fn << std::endl;
+    }
+
+
     int api_start_device_record_video(int rgbWidth, int rgbHeight, int disparityWidth, int disparityHeight, const char* external_storage_path)
     {
    	std::string ext_storage_path = std::string(external_storage_path);
@@ -211,8 +240,7 @@ extern "C"
         api_log("libusb_set_option ANDROID_JAVAVM: %s", libusb_strerror(r));
 	#endif
 
-        std::string fname_prefix = ext_storage_path + "/depthai-video-";
-
+        fname_prefix = ext_storage_path + "/depthai-video-";
         // Create pipeline
         dai::Pipeline pipeline;
         api_log("Pipeline started");
@@ -225,11 +253,9 @@ extern "C"
 
         auto xoutRgb = pipeline.create<dai::node::XLinkOut>();
         auto xoutDisparity = pipeline.create<dai::node::XLinkOut>();
-        auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
 
         xoutRgb->setStreamName("rgb");
         xoutDisparity->setStreamName("disparity");
-        xoutDepth->setStreamName("depth");
 
         // Properties
         camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
@@ -251,12 +277,6 @@ extern "C"
 
         stereo->initialConfig.setConfidenceThreshold(245);
 
-	#ifndef ENCODE_RGB_L_R
-	auto xoutRectRight = pipeline.create<dai::node::XLinkOut>();
-	xoutRectRight->setStreamName("rectRight");
-	stereo->rectifiedRight.link(xoutRectRight->input);
-	#endif
-
 
         // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
         stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
@@ -270,7 +290,6 @@ extern "C"
         monoLeft->out.link(stereo->left);
         monoRight->out.link(stereo->right);
         stereo->disparity.link(xoutDisparity->input);
-        stereo->depth.link(xoutDepth->input);
 
 
 	#ifdef ENCODE_RGB_L_R
@@ -283,14 +302,14 @@ extern "C"
         auto veRightOut = pipeline.create<dai::node::XLinkOut>();
 
         // Linking
-        monoLeft->out.link(veLeft->input);
         camRgb->video.link(veRgb->input);
+        monoLeft->out.link(veLeft->input);
         monoRight->out.link(veRight->input);
 
         api_log("H.264/H.265 video encoders linking done");
 
-        veLeft->bitstream.link(veLeftOut->input);
         veRgb->bitstream.link(veRgbOut->input);
+        veLeft->bitstream.link(veLeftOut->input);
         veRight->bitstream.link(veRightOut->input);
 
         api_log("H.264/H.265 video encoders bitstream linking done");
@@ -315,14 +334,15 @@ extern "C"
         auto veRectRightOut = pipeline.create<dai::node::XLinkOut>();
 
         // Linking
-        stereo->disparity.link(veDisp->input);
         camRgb->video.link(veRgb->input);
-        monoRight->out.link(veRectRight->input);
+        stereo->disparity.link(veDisp->input);
+        stereo->rectifiedRight.link(veRectRight->input);
+
 
         api_log("H.264/H.265 video encoders linking done");
 
-        veDisp->bitstream.link(veDispOut->input);
         veRgb->bitstream.link(veRgbOut->input);
+        veDisp->bitstream.link(veDispOut->input);
         veRectRight->bitstream.link(veRectRightOut->input);
 
         api_log("H.264/H.265 video encoders bitstream linking done");
@@ -374,7 +394,8 @@ extern "C"
         api_log("Device info: %s", device_info.toString().c_str());
 	#endif
 
-
+	auto now = return_next_full_second();
+	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// setprecision() has no effect sadly :(
     
 	#ifdef ENCODE_RGB_L_R
         // Output queues will be used to get the encoded data from the output defined above
@@ -384,24 +405,15 @@ extern "C"
 
         api_log("Output queues created");
 
-	std::stringstream curr_date_time;
-	auto now = return_next_full_second();
-	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// No effect sadly :(
-	auto curr_date_time_str = curr_date_time.str();
-	auto pos = curr_date_time_str.find("."); 
-
         // The H.264/H.265 files are raw stream files (not playable yet)
-	std::string left_fn  = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-left.h265" );
-	std::string color_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-color.h265");
-	std::string right_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-right.h265");
-        v_info.videoFileLeft = std::ofstream(left_fn , std::ios::binary);
-        v_info.videoFileRgb = std::ofstream(color_fn, std::ios::binary);
-        v_info.videoFileRight = std::ofstream(right_fn, std::ios::binary);
-        api_log("Output files opened (%s - %s - %s)", left_fn.c_str(), color_fn.c_str(), right_fn.c_str());
+        videofile_open(Rgb,   "-color.h265");
+        videofile_open(Left,  "-left.h265");
+        videofile_open(Right, "-right.h265");
+        api_log("Output files opened (%s - %s - %s)", Rgb.fname.c_str(), Left.fname.c_str(), Right.fname.c_str());
 
-        v_info.outQLeft = outQLeft;
-        v_info.outQRgb = outQRgb;
-        v_info.outQRight = outQRight;
+        Left.outQ = outQLeft;
+        Rgb.outQ = outQRgb;
+        Right.outQ = outQRight;
 	#else
         // Output queues will be used to get the encoded data from the output defined above
         auto outQDisp = device->getOutputQueue("veDispOut", 1, false);
@@ -410,36 +422,33 @@ extern "C"
 
         api_log("Output queues created");
 
-	std::stringstream curr_date_time;
-	auto now = return_next_full_second();
-	curr_date_time << std::fixed << std::setprecision(2) << date::format("%Y%m%d-%H%M%S", now);		// No effect sadly :(
-	auto curr_date_time_str = curr_date_time.str();
-	auto pos = curr_date_time_str.find("."); 
-
         // The H.264/H.265 files are raw stream files (not playable yet)
-	std::string disp_fn  = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-disp.h265" );
-	std::string color_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-color.h265");
-	std::string rright_fn = fname_prefix + curr_date_time_str.substr(0,pos) + std::string("-rright.h265");
-        v_info.videoFileDisp = std::ofstream(disp_fn , std::ios::binary);
-        v_info.videoFileRgb = std::ofstream(color_fn, std::ios::binary);
-        v_info.videoFileRectRight = std::ofstream(rright_fn, std::ios::binary);
-        api_log("Output files opened (%s - %s - %s)", disp_fn.c_str(), color_fn.c_str(), rright_fn.c_str());
+        videofile_open(Rgb,       "-color.h265");
+        videofile_open(Disp,      "-disp.h265");
+        videofile_open(RectRight, "-rright.h265");
+        api_log("Output files opened (%s - %s - %s)", Rgb.fname.c_str(), Disp.fname.c_str(), RectRight.fname.c_str());
 
-        v_info.outQDisp = outQDisp;
-        v_info.outQRgb = outQRgb;
-        v_info.outQRectRight = outQRectRight;
+        Disp.outQ = outQDisp;
+        Rgb.outQ = outQRgb;
+        RectRight.outQ = outQRectRight;
 	#endif
 
 
         // Output queue will be used to get the rgb frames from the output defined above
         qRgb = device->getOutputQueue("rgb", 1, false);
         qDisparity = device->getOutputQueue("disparity", 1, false);
-        qDepth = device->getOutputQueue("depth", 1, false);
 
-        v_info.qRgb = qRgb;
-        v_info.qDisparity = qDisparity;
-        v_info.qDepth = qDepth;
+        std::vector<std::string> inqueues = device->getInputQueueNames();
+        std::vector<std::string> outqueues = device->getOutputQueueNames();
+        std::string inqueues_str, outqueues_str;
 
+        for (auto & itm : inqueues)
+                inqueues_str += itm + ", ";
+        for (auto & itm : outqueues)
+                outqueues_str += itm + ", ";
+
+        std::cout << "Input queues: " << inqueues_str << std::endl;
+        std::cout << "Output queues: " << outqueues_str << std::endl; // Output queues: rgb, disparity, rectRight, veDispOut, veRgbOut, veRectRightOut, 
 
         // Resize image buffers
         rgbImageBuffer.resize(rgbWidth*rgbHeight*4);
@@ -449,31 +458,59 @@ extern "C"
 
 	return 0;
     }
-    unsigned long api_write_one_video_frame(std::shared_ptr<dai::DataOutputQueue> outQ, std::ofstream & videoFile)
+
+    unsigned long api_write_one_video_frame(stream_info & stream)
     {
-        auto out = outQ->get<dai::ImgFrame>();
+        auto & outQ = stream.outQ;
+        auto & videoFile = stream.videoFile;
+        auto & queue_name = stream.queue_name;
+        auto & recv_frames = stream.recv_frames;
+        auto & lost_frames = stream.lost_frames;
+
+        if (queue_name != "" and debug_pkt_queues)
+        {
+                api_log("Getting and writing one video frame from queue: %s", queue_name.c_str());
+        }
+
+        auto out = api_dequeue(outQ);
+        if (!out)
+        {
+                if (debug_pkt_queues)
+                {
+                        api_log("Lost pkt: %p from queue: %s - recv: %d - lost: %d", out.get(), queue_name.c_str(), recv_frames, lost_frames);
+                }
+                lost_frames++;
+                return -1;
+        }
+
+        if (debug_pkt_queues)
+        {
+                api_log("Received pkt: %p from queue: %s - recv: %d - lost: %d", out.get(), queue_name.c_str(), recv_frames, lost_frames);
+        }
+
         videoFile.write((char*)out->getData().data(), out->getData().size());
+        recv_frames++;
 
         return out->getData().size();   // compressed size of the H.264/H.265 frame
     }
     unsigned long api_get_video_frames()
     {
-            api_write_one_video_frame(v_info.outQRgb, v_info.videoFileRgb);
+            api_write_one_video_frame(Rgb);
 	    #ifdef ENCODE_RGB_L_R
-            api_write_one_video_frame(v_info.outQLeft, v_info.videoFileLeft);
-            api_write_one_video_frame(v_info.outQRight, v_info.videoFileRight);
+            api_write_one_video_frame(Left);
+            api_write_one_video_frame(Right);
 	    #else
-            api_write_one_video_frame(v_info.outQDisp, v_info.videoFileDisp);
-            api_write_one_video_frame(v_info.outQRectRight, v_info.videoFileRectRight);
+            api_write_one_video_frame(Disp);
+            api_write_one_video_frame(RectRight);
 	    #endif
 
-	    v_info.frame_counter++;
-	    if (v_info.frame_counter % 1000 == 0)
+	    frame_counter++;
+	    if (frame_counter % 1000 == 0)
 	    {
- 	           api_log("Read video frame no.: %lu", v_info.frame_counter);
+ 	           api_log("Read video frame no.: %lu", frame_counter);
 	    }
 
-            return v_info.frame_counter;
+            return frame_counter;
     }
 #ifndef PIPELINE_LOCAL_TEST
 }
